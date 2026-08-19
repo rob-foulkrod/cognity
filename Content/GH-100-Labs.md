@@ -1,5 +1,9 @@
 # Labs – GitHub fundamentals - Administration basics and product features
 
+
+Course materials on Microsoft Learn
+[https://learn.microsoft.com/en-us/training/courses/gh-100t00](https://learn.microsoft.com/en-us/training/courses/gh-100t00)
+
 This course includes **4 lab(s)**.
 
 | # | Lab | Module | Link | Duration |
