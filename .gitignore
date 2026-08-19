@@ -1,0 +1,11 @@
+bin/
+tmp/
+obj/
+
+logs/
+*.cert
+*.docx
+
+.env
+
+*.usersettings
