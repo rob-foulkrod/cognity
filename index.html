@@ -288,20 +288,23 @@
     (() => {
       const STORAGE_KEY = "momentum-board-tasks";
       const statuses = ["pending", "working", "done"];
-      const defaults = [
-        { id: crypto.randomUUID(), title: "Outline this week's priorities", status: "pending", created: Date.now() },
-        { id: crypto.randomUUID(), title: "Build the first working version", status: "working", created: Date.now() },
-        { id: crypto.randomUUID(), title: "Set up the project board", status: "done", created: Date.now() }
-      ];
       let tasks = loadTasks();
       let draggedId = null;
+
+      function getDefaults() {
+        return [
+          { id: crypto.randomUUID(), title: "Outline this week's priorities", status: "pending", created: Date.now() },
+          { id: crypto.randomUUID(), title: "Build the first working version", status: "working", created: Date.now() },
+          { id: crypto.randomUUID(), title: "Set up the project board", status: "done", created: Date.now() }
+        ];
+      }
 
       function loadTasks() {
         try {
           const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-          return Array.isArray(saved) ? saved.filter(isTask) : defaults;
+          return Array.isArray(saved) ? saved.filter(isTask) : getDefaults();
         } catch {
-          return defaults;
+          return getDefaults();
         }
       }
 
@@ -314,11 +317,12 @@
         localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
       }
 
-      function createButton(label, action, className = "") {
+      function createButton(label, action, className = "", ariaLabel = label) {
         const button = document.createElement("button");
         button.type = "button";
         button.className = `icon-button ${className}`.trim();
         button.textContent = label;
+        button.ariaLabel = ariaLabel;
         button.addEventListener("click", action);
         return button;
       }
@@ -353,7 +357,9 @@
         title.textContent = task.title;
         const meta = document.createElement("div");
         meta.className = "card-meta";
-        meta.textContent = "Task";
+        meta.textContent = Number.isFinite(task.created)
+          ? `Added ${new Date(task.created).toLocaleDateString()}`
+          : "Task";
         content.append(title, meta);
 
         const grip = document.createElement("span");
@@ -368,8 +374,6 @@
           createButton("↓", () => moveTask(task.id, 1), "", "Move down"),
           createButton("Remove", () => removeTask(task.id), "delete")
         );
-        actions.children[0].ariaLabel = "Move task up";
-        actions.children[1].ariaLabel = "Move task down";
 
         card.append(content, grip, actions);
         card.addEventListener("dragstart", event => {
