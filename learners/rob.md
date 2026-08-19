@@ -6,7 +6,7 @@ I told people to write that!
 
 This is another cool line
 
-WAtch Lists!
+Watch Lists!
 - first item
 - second item
 - third tiem
