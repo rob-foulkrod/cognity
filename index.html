@@ -1,0 +1,511 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101828">
+  <title>Momentum Board</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b1020;
+      --panel: rgba(20, 28, 48, 0.82);
+      --card: #1b2540;
+      --text: #f7f8fc;
+      --muted: #a9b2c7;
+      --line: rgba(255, 255, 255, 0.09);
+      --accent: #7c5cff;
+      --pending: #f5b942;
+      --working: #55a7ff;
+      --done: #49d59c;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      background:
+        radial-gradient(circle at 15% 5%, rgba(124, 92, 255, 0.2), transparent 30rem),
+        radial-gradient(circle at 90% 90%, rgba(73, 213, 156, 0.12), transparent 26rem),
+        var(--bg);
+      color: var(--text);
+    }
+
+    button, input, select { font: inherit; }
+
+    button {
+      color: inherit;
+      cursor: pointer;
+    }
+
+    .app {
+      width: min(1400px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 48px 0 28px;
+    }
+
+    .hero {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 26px;
+    }
+
+    .eyebrow {
+      margin: 0 0 8px;
+      color: #a998ff;
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(2rem, 5vw, 3.7rem);
+      letter-spacing: -0.055em;
+      line-height: 0.98;
+    }
+
+    .subtitle {
+      max-width: 560px;
+      margin: 14px 0 0;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .task-form {
+      display: grid;
+      grid-template-columns: minmax(180px, 1fr) auto auto;
+      gap: 10px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(14, 21, 38, 0.7);
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.2);
+      backdrop-filter: blur(16px);
+    }
+
+    .task-form input,
+    .task-form select {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      outline: none;
+      background: rgba(255, 255, 255, 0.055);
+      color: var(--text);
+      padding: 12px 14px;
+    }
+
+    .task-form input:focus,
+    .task-form select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(124, 92, 255, 0.18);
+    }
+
+    .task-form button {
+      border: 0;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #8e73ff, #6545e9);
+      padding: 12px 18px;
+      font-weight: 800;
+      box-shadow: 0 8px 25px rgba(101, 69, 233, 0.3);
+    }
+
+    .board {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .column {
+      min-height: 460px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: var(--panel);
+      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.18);
+      backdrop-filter: blur(14px);
+    }
+
+    .column-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 2px 4px 15px;
+    }
+
+    .column-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 0;
+      font-size: 0.95rem;
+      letter-spacing: 0.02em;
+    }
+
+    .status-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--status);
+      box-shadow: 0 0 16px var(--status);
+    }
+
+    .count {
+      min-width: 28px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--muted);
+      padding: 3px 8px;
+      font-size: 0.75rem;
+      text-align: center;
+    }
+
+    .task-list {
+      min-height: 390px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      border-radius: 14px;
+      transition: background 160ms ease;
+    }
+
+    .task-list.drag-over {
+      background: rgba(124, 92, 255, 0.08);
+      outline: 1px dashed rgba(169, 152, 255, 0.45);
+    }
+
+    .card {
+      position: relative;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      background: linear-gradient(145deg, rgba(255, 255, 255, 0.045), transparent), var(--card);
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.16);
+      cursor: grab;
+      transition: transform 160ms ease, opacity 160ms ease, border-color 160ms ease;
+    }
+
+    .card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(255, 255, 255, 0.17);
+    }
+
+    .card.dragging { opacity: 0.35; }
+
+    .card-title {
+      margin: 0;
+      overflow-wrap: anywhere;
+      font-size: 0.95rem;
+      font-weight: 650;
+      line-height: 1.45;
+    }
+
+    .card-meta {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 0.72rem;
+    }
+
+    .grip {
+      color: #68738d;
+      font-size: 1rem;
+      letter-spacing: -0.18em;
+      user-select: none;
+    }
+
+    .card-actions {
+      grid-column: 1 / -1;
+      display: flex;
+      justify-content: flex-end;
+      gap: 6px;
+      border-top: 1px solid var(--line);
+      padding-top: 10px;
+    }
+
+    .icon-button {
+      border: 1px solid transparent;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--muted);
+      padding: 4px 8px;
+      font-size: 0.78rem;
+    }
+
+    .icon-button:hover {
+      border-color: var(--line);
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text);
+    }
+
+    .delete:hover { color: #ff8f9c; }
+
+    .empty {
+      display: grid;
+      place-items: center;
+      min-height: 110px;
+      border: 1px dashed var(--line);
+      border-radius: 14px;
+      color: #717d97;
+      font-size: 0.82rem;
+      text-align: center;
+    }
+
+    footer {
+      width: min(1400px, calc(100% - 32px));
+      margin: 0 auto;
+      border-top: 1px solid var(--line);
+      color: #737e96;
+      padding: 22px 0 30px;
+      font-size: 0.78rem;
+      text-align: center;
+    }
+
+    @media (max-width: 900px) {
+      .hero { align-items: start; flex-direction: column; }
+      .task-form { width: 100%; }
+      .board { grid-template-columns: 1fr; }
+      .column { min-height: 260px; }
+      .task-list { min-height: 180px; }
+    }
+
+    @media (max-width: 560px) {
+      .app { width: min(100% - 20px, 1400px); padding-top: 28px; }
+      .task-form { grid-template-columns: 1fr; }
+    }
+  </style>
+  <script defer>
+    (() => {
+      const STORAGE_KEY = "momentum-board-tasks";
+      const statuses = ["pending", "working", "done"];
+      const defaults = [
+        { id: crypto.randomUUID(), title: "Outline this week's priorities", status: "pending", created: Date.now() },
+        { id: crypto.randomUUID(), title: "Build the first working version", status: "working", created: Date.now() },
+        { id: crypto.randomUUID(), title: "Set up the project board", status: "done", created: Date.now() }
+      ];
+      let tasks = loadTasks();
+      let draggedId = null;
+
+      function loadTasks() {
+        try {
+          const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+          return Array.isArray(saved) ? saved.filter(isTask) : defaults;
+        } catch {
+          return defaults;
+        }
+      }
+
+      function isTask(task) {
+        return task && typeof task.id === "string" && typeof task.title === "string" &&
+          statuses.includes(task.status);
+      }
+
+      function saveTasks() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+      }
+
+      function createButton(label, action, className = "") {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = `icon-button ${className}`.trim();
+        button.textContent = label;
+        button.addEventListener("click", action);
+        return button;
+      }
+
+      function moveTask(id, direction) {
+        const task = tasks.find(item => item.id === id);
+        const siblings = tasks.filter(item => item.status === task.status);
+        const siblingIndex = siblings.findIndex(item => item.id === id);
+        const target = siblings[siblingIndex + direction];
+        if (!target) return;
+
+        const currentIndex = tasks.findIndex(item => item.id === id);
+        const targetIndex = tasks.findIndex(item => item.id === target.id);
+        [tasks[currentIndex], tasks[targetIndex]] = [tasks[targetIndex], tasks[currentIndex]];
+        commit();
+      }
+
+      function removeTask(id) {
+        tasks = tasks.filter(task => task.id !== id);
+        commit();
+      }
+
+      function buildCard(task) {
+        const card = document.createElement("article");
+        card.className = "card";
+        card.draggable = true;
+        card.dataset.id = task.id;
+
+        const content = document.createElement("div");
+        const title = document.createElement("p");
+        title.className = "card-title";
+        title.textContent = task.title;
+        const meta = document.createElement("div");
+        meta.className = "card-meta";
+        meta.textContent = "Task";
+        content.append(title, meta);
+
+        const grip = document.createElement("span");
+        grip.className = "grip";
+        grip.textContent = "••";
+        grip.title = "Drag to move";
+
+        const actions = document.createElement("div");
+        actions.className = "card-actions";
+        actions.append(
+          createButton("↑", () => moveTask(task.id, -1), "", "Move up"),
+          createButton("↓", () => moveTask(task.id, 1), "", "Move down"),
+          createButton("Remove", () => removeTask(task.id), "delete")
+        );
+        actions.children[0].ariaLabel = "Move task up";
+        actions.children[1].ariaLabel = "Move task down";
+
+        card.append(content, grip, actions);
+        card.addEventListener("dragstart", event => {
+          draggedId = task.id;
+          event.dataTransfer.effectAllowed = "move";
+          requestAnimationFrame(() => card.classList.add("dragging"));
+        });
+        card.addEventListener("dragend", () => {
+          draggedId = null;
+          card.classList.remove("dragging");
+          document.querySelectorAll(".drag-over").forEach(item => item.classList.remove("drag-over"));
+        });
+        return card;
+      }
+
+      function render() {
+        statuses.forEach(status => {
+          const list = document.querySelector(`[data-list="${status}"]`);
+          const statusTasks = tasks.filter(task => task.status === status);
+          list.replaceChildren();
+          statusTasks.forEach(task => list.append(buildCard(task)));
+          if (!statusTasks.length) {
+            const empty = document.createElement("div");
+            empty.className = "empty";
+            empty.textContent = "Drop a task here";
+            list.append(empty);
+          }
+          document.querySelector(`[data-count="${status}"]`).textContent = statusTasks.length;
+        });
+      }
+
+      function commit() {
+        saveTasks();
+        render();
+      }
+
+      function dropTask(event, status) {
+        event.preventDefault();
+        const dragged = tasks.find(task => task.id === draggedId);
+        if (!dragged) return;
+
+        const targetCard = event.target.closest(".card");
+        const withoutDragged = tasks.filter(task => task.id !== draggedId);
+        dragged.status = status;
+        if (targetCard && targetCard.dataset.id !== draggedId) {
+          const targetIndex = withoutDragged.findIndex(task => task.id === targetCard.dataset.id);
+          withoutDragged.splice(targetIndex, 0, dragged);
+          tasks = withoutDragged;
+        } else {
+          tasks = [...withoutDragged, dragged];
+        }
+        commit();
+      }
+
+      document.addEventListener("DOMContentLoaded", () => {
+        const form = document.querySelector(".task-form");
+        const input = document.querySelector("#task-title");
+        const status = document.querySelector("#task-status");
+
+        form.addEventListener("submit", event => {
+          event.preventDefault();
+          const title = input.value.trim();
+          if (!title) return;
+          tasks.push({ id: crypto.randomUUID(), title, status: status.value, created: Date.now() });
+          input.value = "";
+          input.focus();
+          commit();
+        });
+
+        statuses.forEach(name => {
+          const list = document.querySelector(`[data-list="${name}"]`);
+          list.addEventListener("dragover", event => {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = "move";
+            list.classList.add("drag-over");
+          });
+          list.addEventListener("dragleave", event => {
+            if (!list.contains(event.relatedTarget)) list.classList.remove("drag-over");
+          });
+          list.addEventListener("drop", event => dropTask(event, name));
+        });
+
+        render();
+      });
+    })();
+  </script>
+</head>
+<body>
+  <main class="app">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Personal workspace</p>
+        <h1>Momentum Board</h1>
+        <p class="subtitle">Capture what matters, move work forward, and keep your wins in sight.</p>
+      </div>
+      <form class="task-form">
+        <label hidden for="task-title">Task title</label>
+        <input id="task-title" maxlength="160" placeholder="What needs to be done?" required>
+        <label hidden for="task-status">Task status</label>
+        <select id="task-status">
+          <option value="pending">Pending</option>
+          <option value="working">Working</option>
+          <option value="done">Done</option>
+        </select>
+        <button type="submit">Add task</button>
+      </form>
+    </header>
+
+    <section class="board" aria-label="Kanban board">
+      <section class="column" style="--status: var(--pending)">
+        <div class="column-header">
+          <h2 class="column-title"><span class="status-dot"></span>Pending</h2>
+          <span class="count" data-count="pending">0</span>
+        </div>
+        <div class="task-list" data-list="pending"></div>
+      </section>
+      <section class="column" style="--status: var(--working)">
+        <div class="column-header">
+          <h2 class="column-title"><span class="status-dot"></span>Working</h2>
+          <span class="count" data-count="working">0</span>
+        </div>
+        <div class="task-list" data-list="working"></div>
+      </section>
+      <section class="column" style="--status: var(--done)">
+        <div class="column-header">
+          <h2 class="column-title"><span class="status-dot"></span>Done</h2>
+          <span class="count" data-count="done">0</span>
+        </div>
+        <div class="task-list" data-list="done"></div>
+      </section>
+    </section>
+  </main>
+
+  <!-- Footer edits can be made here without touching the CSS or JavaScript above. -->
+  <footer>
+    Momentum Board · Your tasks stay in this browser
+  </footer>
+</body>
+</html>
