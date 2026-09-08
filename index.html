@@ -79,7 +79,7 @@
 
     .task-form {
       display: grid;
-      grid-template-columns: minmax(180px, 1fr) auto auto;
+      grid-template-columns: minmax(180px, 1.3fr) minmax(120px, 0.8fr) minmax(120px, 0.8fr) auto;
       gap: 10px;
       padding: 12px;
       border: 1px solid var(--line);
@@ -89,8 +89,19 @@
       backdrop-filter: blur(16px);
     }
 
+    .board-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+
     .task-form input,
-    .task-form select {
+    .task-form select,
+    .board-toolbar select {
       min-width: 0;
       border: 1px solid var(--line);
       border-radius: 12px;
@@ -101,7 +112,8 @@
     }
 
     .task-form input:focus,
-    .task-form select:focus {
+    .task-form select:focus,
+    .board-toolbar select:focus {
       border-color: var(--accent);
       box-shadow: 0 0 0 3px rgba(124, 92, 255, 0.18);
     }
@@ -288,24 +300,54 @@
     (() => {
       const STORAGE_KEY = "momentum-board-tasks";
       const statuses = ["pending", "working", "done"];
+      const users = ["Alex", "Jordan", "Morgan", "Taylor"];
+      let memoryStore = {};
       let tasks = loadTasks();
       let draggedId = null;
+      let activeUser = "all";
 
       function getDefaults() {
         return [
-          { id: crypto.randomUUID(), title: "Outline this week's priorities", status: "pending", created: Date.now() },
-          { id: crypto.randomUUID(), title: "Build the first working version", status: "working", created: Date.now() },
-          { id: crypto.randomUUID(), title: "Set up the project board", status: "done", created: Date.now() }
+          { id: crypto.randomUUID(), title: "Outline this week's priorities", status: "pending", created: Date.now(), user: "Alex" },
+          { id: crypto.randomUUID(), title: "Build the first working version", status: "working", created: Date.now(), user: "Jordan" },
+          { id: crypto.randomUUID(), title: "Set up the project board", status: "done", created: Date.now(), user: "Morgan" }
         ];
+      }
+
+      function readStoredTasks() {
+        try {
+          return localStorage.getItem(STORAGE_KEY);
+        } catch {
+          return memoryStore[STORAGE_KEY] || null;
+        }
+      }
+
+      function writeStoredTasks(value) {
+        try {
+          localStorage.setItem(STORAGE_KEY, value);
+        } catch {
+          memoryStore[STORAGE_KEY] = value;
+        }
       }
 
       function loadTasks() {
         try {
-          const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-          return Array.isArray(saved) ? saved.filter(isTask) : getDefaults();
+          const saved = JSON.parse(readStoredTasks());
+          const normalized = Array.isArray(saved) ? saved.filter(isTask).map(normalizeTask) : getDefaults();
+          return normalized.length ? normalized : getDefaults();
         } catch {
           return getDefaults();
         }
+      }
+
+      function normalizeTask(task) {
+        return {
+          ...task,
+          title: typeof task.title === "string" ? task.title : "Untitled task",
+          status: statuses.includes(task.status) ? task.status : "pending",
+          user: typeof task.user === "string" && task.user.trim() ? task.user : users[0],
+          created: Number.isFinite(task.created) ? task.created : Date.now()
+        };
       }
 
       function isTask(task) {
@@ -314,7 +356,20 @@
       }
 
       function saveTasks() {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+        writeStoredTasks(JSON.stringify(tasks));
+      }
+
+      function userOptions() {
+        const values = [...new Set(tasks.map(task => task.user).filter(Boolean))];
+        return [...new Set([...users, ...values])].sort((a, b) => a.localeCompare(b));
+      }
+
+      function sortTasks(taskList) {
+        return [...taskList].sort((a, b) => {
+          const userOrder = (a.user || "").localeCompare(b.user || "");
+          if (userOrder !== 0) return userOrder;
+          return (a.created || 0) - (b.created || 0);
+        });
       }
 
       function createButton(label, action, className = "", ariaLabel = label) {
@@ -357,9 +412,18 @@
         title.textContent = task.title;
         const meta = document.createElement("div");
         meta.className = "card-meta";
-        meta.textContent = Number.isFinite(task.created)
+        const userBadge = document.createElement("span");
+        userBadge.textContent = task.user || "Unassigned";
+        userBadge.style.border = "1px solid rgba(255,255,255,0.12)";
+        userBadge.style.borderRadius = "999px";
+        userBadge.style.padding = "3px 7px";
+        userBadge.style.background = "rgba(124, 92, 255, 0.14)";
+        userBadge.style.color = "#dcd4ff";
+        const dateText = document.createElement("span");
+        dateText.textContent = Number.isFinite(task.created)
           ? `Added ${new Date(task.created).toLocaleDateString()}`
           : "Task";
+        meta.append(userBadge, dateText);
         content.append(title, meta);
 
         const grip = document.createElement("span");
@@ -390,15 +454,29 @@
       }
 
       function render() {
+        const filterSelect = document.querySelector("#user-filter");
+        const options = userOptions();
+        if (filterSelect) {
+          const current = options.includes(activeUser) ? activeUser : "all";
+          activeUser = current;
+          filterSelect.innerHTML = [
+            '<option value="all">All users</option>',
+            ...options.map(user => `<option value="${user}">${user}</option>`)
+          ].join("");
+          filterSelect.value = activeUser;
+        }
+
+        const visibleTasks = sortTasks(tasks.filter(task => activeUser === "all" || task.user === activeUser));
+
         statuses.forEach(status => {
           const list = document.querySelector(`[data-list="${status}"]`);
-          const statusTasks = tasks.filter(task => task.status === status);
+          const statusTasks = visibleTasks.filter(task => task.status === status);
           list.replaceChildren();
           statusTasks.forEach(task => list.append(buildCard(task)));
           if (!statusTasks.length) {
             const empty = document.createElement("div");
             empty.className = "empty";
-            empty.textContent = "Drop a task here";
+            empty.textContent = activeUser === "all" ? "Drop a task here" : `No tasks for ${activeUser}`;
             list.append(empty);
           }
           document.querySelector(`[data-count="${status}"]`).textContent = statusTasks.length;
@@ -431,16 +509,25 @@
       document.addEventListener("DOMContentLoaded", () => {
         const form = document.querySelector(".task-form");
         const input = document.querySelector("#task-title");
+        const user = document.querySelector("#task-user");
         const status = document.querySelector("#task-status");
+        const filter = document.querySelector("#user-filter");
+
+        user.innerHTML = userOptions().map(value => `<option value="${value}">${value}</option>`).join("");
 
         form.addEventListener("submit", event => {
           event.preventDefault();
           const title = input.value.trim();
           if (!title) return;
-          tasks.push({ id: crypto.randomUUID(), title, status: status.value, created: Date.now() });
+          tasks.push({ id: crypto.randomUUID(), title, status: status.value, user: user.value, created: Date.now() });
           input.value = "";
           input.focus();
           commit();
+        });
+
+        filter.addEventListener("change", event => {
+          activeUser = event.target.value;
+          render();
         });
 
         statuses.forEach(name => {
@@ -472,6 +559,8 @@
       <form class="task-form">
         <label hidden for="task-title">Task title</label>
         <input id="task-title" maxlength="160" placeholder="What needs to be done?" required>
+        <label hidden for="task-user">Task user</label>
+        <select id="task-user" aria-label="Assign a user"></select>
         <label hidden for="task-status">Task status</label>
         <select id="task-status">
           <option value="pending">Pending</option>
@@ -481,6 +570,13 @@
         <button type="submit">Add task</button>
       </form>
     </header>
+
+    <div class="board-toolbar" aria-label="Filter tasks by user">
+      <label for="user-filter">Filter by user</label>
+      <select id="user-filter">
+        <option value="all">All users</option>
+      </select>
+    </div>
 
     <section class="board" aria-label="Kanban board">
       <section class="column" style="--status: var(--pending)">
